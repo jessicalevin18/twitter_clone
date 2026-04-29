@@ -1,5 +1,3 @@
-version: '3.3'
-
 services:
   pg_normalized:
     build: services/pg_normalized
@@ -26,8 +24,7 @@ services:
       - PG_PORT=5432
     volumes:
       - ./services/web:/app
-    command: python main.py
-    restart: always
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 volumes:
   pg_normalized:
