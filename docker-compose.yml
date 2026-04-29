@@ -26,6 +26,8 @@ services:
       - PG_PORT=5432
     volumes:
       - ./services/web:/app
+    command: python main.py
+    restart: always
 
 volumes:
   pg_normalized:
