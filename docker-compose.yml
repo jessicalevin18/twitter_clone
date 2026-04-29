@@ -24,6 +24,8 @@ services:
       - PG_PASSWORD=pass
       - PG_HOST=pg_normalized
       - PG_PORT=5432
+    volumes:
+      - ./services/web:/app
 
 volumes:
-    pg_normalized:
+  pg_normalized:
