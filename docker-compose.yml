@@ -13,5 +13,17 @@ services:
     ports:
       - 24527:5432
 
+  web:
+    build: services/web
+    depends_on:
+      - pg_normalized
+    ports:
+      - 8000:8000
+    environment:
+      - PG_USER=postgres
+      - PG_PASSWORD=pass
+      - PG_HOST=pg_normalized
+      - PG_PORT=5432
+
 volumes:
     pg_normalized:
