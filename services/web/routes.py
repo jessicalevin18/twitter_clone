@@ -19,6 +19,8 @@ def read_login(request: Request):
 @router.post("/login")
 def post_login(request: Request, username: str = Form(...), password: str = Form(...)):
     """Returns the HTML content after a successful login"""
+    # Print the username and password to the logs
+    print(f"Username: {username}, Password: {password}")
     return templates.TemplateResponse("login_successful.html", {"request": request})
 
 @router.get("/logout")
