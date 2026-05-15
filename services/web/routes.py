@@ -31,12 +31,19 @@ def check_credentials(username: str, password: str) -> str:
     Returns:
     - str: The username if the credentials are valid, otherwise None.
     """
-    # FIXME: Add database code to check credentials
-    # For now, this is a mock with hardcoded valid credentials
-    if username == "Trump" and password == "12345":
-        return username
-    else:
-        return None
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # ✅ Parameterized — safe from SQL injection
+            cursor.execute(
+                "SELECT username FROM credentials WHERE username = %s AND password = %s",
+                (username, password)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
+    finally:
+        conn.close()
+
 
 def logged_in_user(request: Request) -> str:
     """
@@ -103,20 +110,20 @@ def read_login(request: Request):
 @router.post("/login")
 def post_login(request: Request, username: str = Form(...), password: str = Form(...)):
     print_debug_info(request)
-    """Returns the HTML content after a login attempt"""
-    # Print the username and password to the logs
-    print(f"Username: {username}, Password: {password}")
-    # Check the credentials
     valid_username = check_credentials(username, password)
     if valid_username is not None:
-        # Credentials are valid, set cookies and return the success page
-        response = templates.TemplateResponse("login_successful.html", {"request": request, "username": valid_username})
+        # ✅ Redirect to homepage after successful login
+        response = RedirectResponse(url="/", status_code=303)
         response.set_cookie("username", username)
         response.set_cookie("password", password)
         return response
     else:
-        # Credentials are invalid, return an error page
-        return templates.TemplateResponse("login.html", {"request": request, "username": None, "error": "Invalid username or password"})
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "username": None,
+            "error": "Invalid username or password"
+        })
+        
 
 @router.get("/logout")
 def read_logout(request: Request):
