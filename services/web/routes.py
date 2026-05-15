@@ -128,13 +128,9 @@ def post_login(request: Request, username: str = Form(...), password: str = Form
 @router.get("/logout")
 def read_logout(request: Request):
     print_debug_info(request)
-    """Returns the HTML content for the logout page and deletes cookies"""
-    username = logged_in_user(request)
-    response = templates.TemplateResponse("logout.html", {"request": request, "username": None})
-    response.set_cookie("username", "")
-    response.set_cookie("password", "")
-    response.set_cookie("username", "", expires=0)
-    response.set_cookie("password", "", expires=0)
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie("username")
+    response.delete_cookie("password")
     return response
 
 @router.get("/create_account")
