@@ -57,7 +57,7 @@ def logged_in_user(request: Request) -> str:
     """
     username = request.cookies.get("username")
     password = request.cookies.get("password")
-    if username is not None and password is not None:
+    if username and password and username.strip() and password.strip():
         valid_username = check_credentials(username, password)
         if valid_username is not None:
             return valid_username
