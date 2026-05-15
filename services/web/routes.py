@@ -1,3 +1,5 @@
+import psycopg2
+import os
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi import Form
@@ -8,6 +10,15 @@ from fastapi import Cookie
 # Define the router before using it
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+
+def get_db_connection():
+    return psycopg2.connect(
+        host=os.environ.get("PG_HOST", "pg_normalized"),
+        port=os.environ.get("PG_PORT", 5432),
+        database=os.environ.get("PG_DB", "postgres"),  # default postgres db name
+        user=os.environ.get("PG_USER", "postgres"),
+        password=os.environ.get("PG_PASSWORD", "pass"),
+    )
 
 def check_credentials(username: str, password: str) -> str:
     """
@@ -53,9 +64,34 @@ def print_debug_info(request: Request):
 
 @router.get("/")
 async def read_root(request: Request):
+    print_debug_info(request)
     """Returns the HTML content for the home page"""
     username = logged_in_user(request)
-    return templates.TemplateResponse("index.html", {"request": request, "username": username})
+
+    page = int(request.query_params.get("page", 0))
+    limit = 20
+    offset = page * limit
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT u.screen_name, t.created_at, t.text
+                FROM tweets t
+                JOIN users u ON t.id_users = u.id_users
+                ORDER BY t.created_at DESC, t.id_tweets DESC
+                LIMIT %s OFFSET %s
+            """, (limit, offset))
+            messages = cursor.fetchall()
+    finally:
+        conn.close()
+
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "username": username,
+        "messages": messages,
+        "page": page,
+    })
 
 @router.get("/login")
 def read_login(request: Request):

@@ -60,6 +60,7 @@ CREATE TABLE tweets (
     -- FOREIGN KEY (quoted_status_id) REFERENCES tweets(id_tweets)
 );
 
+CREATE INDEX tweets_index_created_at ON tweets(created_at DESC);
 CREATE INDEX tweets_index_withheldincountries ON tweets USING gin(withheld_in_countries);
 
 CREATE TABLE credentials (

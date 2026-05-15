@@ -1,5 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Welcome to the home page</h1>
+<h1>Recent Messages</h1>
+
+{% for msg in messages %}
+<div>
+    <strong>{{ msg[0] }}</strong>
+    <span> · </span>
+    <em>{{ msg[1].strftime('%Y-%m-%d %H:%M:%S') }}</em>
+    <p>{{ msg[2] }}</p>
+    <hr>
+</div>
+{% else %}
+<p>No messages yet.</p>
+{% endfor %}
+
+<nav>
+    {% if page > 0 %}
+    <a href="/?page={{ page - 1 }}">← Previous</a>
+    {% endif %}
+    {% if messages|length == 20 %}
+    <a href="/?page={{ page + 1 }}">Next →</a>
+    {% endif %}
+</nav>
 {% endblock %}
