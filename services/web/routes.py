@@ -45,6 +45,12 @@ def logged_in_user(request: Request) -> str:
             return valid_username
     return None
 
+def print_debug_info(request: Request):
+    #print(f"--- DEBUG: {request.method} {request.url.path} ---")
+    #print(f"Query params: {dict(request.query_params)}")
+    print(f"Cookies: {dict(request.cookies)}")
+    #print(f"Headers: {dict(request.headers)}")
+
 @router.get("/")
 async def read_root(request: Request):
     """Returns the HTML content for the home page"""
@@ -53,12 +59,14 @@ async def read_root(request: Request):
 
 @router.get("/login")
 def read_login(request: Request):
+    print_debug_info(request)
     """Returns the HTML content for the login page"""
     username = logged_in_user(request)
     return templates.TemplateResponse("login.html", {"request": request, "username": username})
 
 @router.post("/login")
 def post_login(request: Request, username: str = Form(...), password: str = Form(...)):
+    print_debug_info(request)
     """Returns the HTML content after a login attempt"""
     # Print the username and password to the logs
     print(f"Username: {username}, Password: {password}")
@@ -76,6 +84,7 @@ def post_login(request: Request, username: str = Form(...), password: str = Form
 
 @router.get("/logout")
 def read_logout(request: Request):
+    print_debug_info(request)
     """Returns the HTML content for the logout page and deletes cookies"""
     username = logged_in_user(request)
     response = templates.TemplateResponse("logout.html", {"request": request, "username": None})
