@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS tweets (
 
 CREATE TABLE IF NOT EXISTS credentials (
     username TEXT PRIMARY KEY,
-    password TEXT
+    password TEXT NOT NULL
 );
 
 -- Extensions and indexes (IF NOT EXISTS so safe to re-run)
@@ -64,5 +64,6 @@ CREATE INDEX IF NOT EXISTS tweets_rum_tsv ON tweets USING rum(tsv_text);
 CREATE INDEX IF NOT EXISTS tweets_index_withheldincountries ON tweets USING gin(withheld_in_countries);
 CREATE INDEX IF NOT EXISTS tweets_trgm_text ON tweets USING gin(text gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS tweets_index_created_at ON tweets(created_at DESC);
+CREATE INDEX IF NOT EXISTS users_index_screen_name ON users(screen_name);
 
 COMMIT;

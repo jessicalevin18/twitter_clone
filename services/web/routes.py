@@ -259,10 +259,25 @@ def post_search(request: Request, query: str = Form(...), page: int = Form(0)):
     username = logged_in_user(request)
     limit = 20
     offset = page * limit
-
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
+            # Check if query reduces to empty tsquery (stop words only)
+            # ✅ Parameterized — safe from SQL injection
+            cursor.execute("SELECT PLAINTO_TSQUERY('english', %s)::text", (query,))
+            tsquery = cursor.fetchone()[0]
+
+            if not tsquery:
+                return templates.TemplateResponse("search_results.html", {
+                    "request": request,
+                    "username": username,
+                    "query": query,
+                    "messages": [],
+                    "page": page,
+                    "suggestions": [],
+                    "stop_word": True,
+                })
+
             # ✅ Parameterized — safe from SQL injection
             cursor.execute("""
                 SELECT
@@ -307,4 +322,5 @@ def post_search(request: Request, query: str = Form(...), page: int = Form(0)):
         "messages": messages,
         "page": page,
         "suggestions": suggestions,
+        "stop_word": False,
     })
