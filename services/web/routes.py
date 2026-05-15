@@ -123,7 +123,60 @@ def post_login(request: Request, username: str = Form(...), password: str = Form
             "username": None,
             "error": "Invalid username or password"
         })
-        
+
+@router.post("/create_account")
+def post_create_account(request: Request, username: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+    if password != confirm_password:
+        return templates.TemplateResponse("create_account.html", {
+            "request": request,
+            "username": None,
+            "error": "Passwords do not match"
+        })
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Check if username already exists in credentials
+            cursor.execute(
+                "SELECT username FROM credentials WHERE username = %s",
+                (username,)
+            )
+            if cursor.fetchone() is not None:
+                return templates.TemplateResponse("create_account.html", {
+                    "request": request,
+                    "username": None,
+                    "error": f"Username '{username}' already exists"
+                })
+
+            # Generate a new id_users
+            cursor.execute("SELECT COALESCE(MAX(id_users), 0) + 1 FROM users")
+            id_users = cursor.fetchone()[0]
+
+            # Insert into users table
+            # ✅ Parameterized — safe from SQL injection
+            cursor.execute(
+                """
+                INSERT INTO users (id_users, screen_name, created_at)
+                VALUES (%s, %s, NOW())
+                """,
+                (id_users, username)
+            )
+
+            # Insert into credentials table
+            # ✅ Parameterized — safe from SQL injection
+            cursor.execute(
+                "INSERT INTO credentials (username, password) VALUES (%s, %s)",
+                (username, password)
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    # Log them in automatically
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie("username", username)
+    response.set_cookie("password", password)
+    return response
 
 @router.get("/logout")
 def read_logout(request: Request):
@@ -139,59 +192,59 @@ def read_create_account(request: Request):
     username = logged_in_user(request)
     return templates.TemplateResponse("create_account.html", {"request": request, "username": username})
 
-@router.post("/create_account")
-def post_create_account(request: Request, username: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
-    # Check passwords match
-    if password != confirm_password:
-        return templates.TemplateResponse("create_account.html", {
-            "request": request,
-            "username": None,
-            "error": "Passwords do not match"
-        })
+
+@router.get("/create_message")
+def read_create_message(request: Request):
+    username = logged_in_user(request)
+    # Redirect to login if not logged in
+    if username is None:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("create_message.html", {"request": request, "username": username})
+
+@router.post("/create_message")
+def post_create_message(request: Request, message: str = Form(...)):
+    username = logged_in_user(request)
+    if username is None:
+        return RedirectResponse(url="/login", status_code=303)
 
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # Check if username already exists
+            # Look up the user's id_users from their username
             # ✅ Parameterized — safe from SQL injection
             cursor.execute(
-                "SELECT username FROM credentials WHERE username = %s",
+                "SELECT id_users FROM users WHERE screen_name = %s",
                 (username,)
             )
-            if cursor.fetchone() is not None:
-                return templates.TemplateResponse("create_account.html", {
+            row = cursor.fetchone()
+            if row is None:
+                return templates.TemplateResponse("create_message.html", {
                     "request": request,
-                    "username": None,
-                    "error": f"Username '{username}' already exists"
+                    "username": username,
+                    "error": "User not found"
                 })
+            id_users = row[0]
 
-            # Insert new account
+            # Insert the tweet
             # ✅ Parameterized — safe from SQL injection
             cursor.execute(
-                "INSERT INTO credentials (username, password) VALUES (%s, %s)",
-                (username, password)
+                """
+                INSERT INTO tweets (id_tweets, id_users, created_at, text)
+                VALUES (
+                    (SELECT COALESCE(MAX(id_tweets), 0) + 1 FROM tweets),
+                    %s,
+                    NOW(),
+                    %s
+                )
+                """,
+                (id_users, message)
             )
             conn.commit()
     finally:
         conn.close()
 
-    # Log them in automatically after account creation
-    response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie("username", username)
-    response.set_cookie("password", password)
-    return response
-
-@router.get("/create_message")
-def read_create_message(request: Request):
-    """Returns the HTML content for the create message page"""
-    username = logged_in_user(request)
-    return templates.TemplateResponse("create_message.html", {"request": request, "username": username})
-
-@router.post("/create_message")
-def post_create_message(request: Request, message: str = Form(...)):
-    """Returns the HTML content after a successful message creation"""
-    username = logged_in_user(request)
-    return templates.TemplateResponse("message_posted.html", {"request": request, "username": username})
+    # Redirect to homepage so the new tweet shows up immediately
+    return RedirectResponse(url="/", status_code=303)
 
 @router.get("/search")
 def read_search(request: Request):
