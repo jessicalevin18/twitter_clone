@@ -34,7 +34,6 @@ def check_credentials(username: str, password: str) -> str:
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # ✅ Parameterized — safe from SQL injection
             cursor.execute(
                 "SELECT username FROM credentials WHERE username = %s AND password = %s",
                 (username, password)
@@ -112,7 +111,6 @@ def post_login(request: Request, username: str = Form(...), password: str = Form
     print_debug_info(request)
     valid_username = check_credentials(username, password)
     if valid_username is not None:
-        # ✅ Redirect to homepage after successful login
         response = RedirectResponse(url="/", status_code=303)
         response.set_cookie("username", username)
         response.set_cookie("password", password)
@@ -153,7 +151,6 @@ def post_create_account(request: Request, username: str = Form(...), password: s
             id_users = cursor.fetchone()[0]
 
             # Insert into users table
-            # ✅ Parameterized — safe from SQL injection
             cursor.execute(
                 """
                 INSERT INTO users (id_users, screen_name, created_at)
@@ -163,7 +160,6 @@ def post_create_account(request: Request, username: str = Form(...), password: s
             )
 
             # Insert into credentials table
-            # ✅ Parameterized — safe from SQL injection
             cursor.execute(
                 "INSERT INTO credentials (username, password) VALUES (%s, %s)",
                 (username, password)
@@ -211,7 +207,6 @@ def post_create_message(request: Request, message: str = Form(...)):
     try:
         with conn.cursor() as cursor:
             # Look up the user's id_users from their username
-            # ✅ Parameterized — safe from SQL injection
             cursor.execute(
                 "SELECT id_users FROM users WHERE screen_name = %s",
                 (username,)
@@ -226,7 +221,6 @@ def post_create_message(request: Request, message: str = Form(...)):
             id_users = row[0]
 
             # Insert the tweet
-            # ✅ Parameterized — safe from SQL injection
             cursor.execute(
                 """
                 INSERT INTO tweets (id_tweets, id_users, created_at, text)
@@ -263,7 +257,6 @@ def post_search(request: Request, query: str = Form(...), page: int = Form(0)):
     try:
         with conn.cursor() as cursor:
             # Check if query reduces to empty tsquery (stop words only)
-            # ✅ Parameterized — safe from SQL injection
             cursor.execute("SELECT PLAINTO_TSQUERY('english', %s)::text", (query,))
             tsquery = cursor.fetchone()[0]
 
@@ -278,7 +271,6 @@ def post_search(request: Request, query: str = Form(...), page: int = Form(0)):
                     "stop_word": True,
                 })
 
-            # ✅ Parameterized — safe from SQL injection
             cursor.execute("""
                 SELECT
                     u.screen_name,
