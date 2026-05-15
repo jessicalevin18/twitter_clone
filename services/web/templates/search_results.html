@@ -1,5 +1,46 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Search results for your query</h1>
+<h1>Search results for "{{ query }}"</h1>
+
+<form action="/search" method="post">
+    <input type="text" name="query" value="{{ query }}" required>
+    <input type="submit" value="Search">
+</form>
+
+{% if suggestions %}
+<p>No results found. Did you mean:
+    {% for s in suggestions %}
+        <a href="#" onclick="document.querySelector('input[name=query]').value='{{ s }}'; return false;">{{ s }}</a>{% if not loop.last %}, {% endif %}
+    {% endfor %}
+?</p>
+{% endif %}
+
+{% for msg in messages %}
+<div>
+    <strong>{{ msg[0] }}</strong>
+    <em>{{ msg[1].strftime('%Y-%m-%d %H:%M:%S') }}</em>
+    <p>{{ msg[2] | safe }}</p>
+    <hr>
+</div>
+{% else %}
+{% if not suggestions %}
+    <p>No results found for "{{ query }}".</p>
+{% endif %}
+{% endfor %}
+
+<form action="/search" method="post">
+    <input type="hidden" name="query" value="{{ query }}">
+    {% if page > 0 %}
+        <input type="hidden" name="page" value="{{ page - 1 }}">
+        <button type="submit">← Previous</button>
+    {% endif %}
+</form>
+<form action="/search" method="post">
+    <input type="hidden" name="query" value="{{ query }}">
+    {% if messages | length == 20 %}
+        <input type="hidden" name="page" value="{{ page + 1 }}">
+        <button type="submit">Next →</button>
+    {% endif %}
+</form>
 {% endblock %}

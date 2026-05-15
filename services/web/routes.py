@@ -248,12 +248,63 @@ def post_create_message(request: Request, message: str = Form(...)):
 
 @router.get("/search")
 def read_search(request: Request):
-    """Returns the HTML content for the search page"""
     username = logged_in_user(request)
-    return templates.TemplateResponse("search.html", {"request": request, "username": username})
+    return templates.TemplateResponse("search.html", {
+        "request": request,
+        "username": username,
+    })
 
 @router.post("/search")
-def post_search(request: Request, query: str = Form(...)):
-    """Returns the HTML content for the search results page"""
+def post_search(request: Request, query: str = Form(...), page: int = Form(0)):
     username = logged_in_user(request)
-    return templates.TemplateResponse("search_results.html", {"request": request, "username": username})
+    limit = 20
+    offset = page * limit
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # ✅ Parameterized — safe from SQL injection
+            cursor.execute("""
+                SELECT
+                    u.screen_name,
+                    t.created_at,
+                    TS_HEADLINE(
+                        'english',
+                        t.text,
+                        PLAINTO_TSQUERY('english', %s),
+                        'StartSel=<mark>, StopSel=</mark>, MaxFragments=3, MinWords=5, MaxWords=15, FragmentDelimiter=" ... "'
+                    ) AS highlighted,
+                    TS_RANK(t.tsv_text, PLAINTO_TSQUERY('english', %s)) AS rank
+                FROM tweets t
+                JOIN users u ON t.id_users = u.id_users
+                WHERE t.tsv_text @@ PLAINTO_TSQUERY('english', %s)
+                ORDER BY rank DESC
+                LIMIT %s OFFSET %s
+            """, (query, query, query, limit, offset))
+            messages = cursor.fetchall()
+
+            # Spelling suggestions via pg_trgm if no results found
+            suggestions = []
+            if not messages:
+                words = query.split()
+                for word in words:
+                    cursor.execute("""
+                        SELECT word FROM ts_stat('SELECT tsv_text FROM tweets')
+                        WHERE word %% %s
+                        ORDER BY similarity(word, %s) DESC
+                        LIMIT 3
+                    """, (word, word))
+                    rows = cursor.fetchall()
+                    if rows:
+                        suggestions.extend([r[0] for r in rows])
+    finally:
+        conn.close()
+
+    return templates.TemplateResponse("search_results.html", {
+        "request": request,
+        "username": username,
+        "query": query,
+        "messages": messages,
+        "page": page,
+        "suggestions": suggestions,
+    })

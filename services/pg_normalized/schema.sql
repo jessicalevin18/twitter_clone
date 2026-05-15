@@ -1,19 +1,13 @@
-
 \set ON_ERROR_STOP on
 
 BEGIN;
 
-DROP TABLE IF EXISTS tweets CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS urls CASCADE;
-DROP TABLE IF EXISTS credentials CASCADE;
-
-CREATE TABLE urls (
+CREATE TABLE IF NOT EXISTS urls (
     id_urls BIGSERIAL PRIMARY KEY,
     url TEXT UNIQUE
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id_users BIGINT PRIMARY KEY,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ,
@@ -32,7 +26,7 @@ CREATE TABLE users (
     FOREIGN KEY (id_urls) REFERENCES urls(id_urls)
 );
 
-CREATE TABLE tweets (
+CREATE TABLE IF NOT EXISTS tweets (
     id_tweets BIGINT PRIMARY KEY,
     id_users BIGINT,
     created_at TIMESTAMPTZ,
@@ -52,21 +46,23 @@ CREATE TABLE tweets (
     place_name TEXT,
     FOREIGN KEY (id_users) REFERENCES users(id_users),
     FOREIGN KEY (in_reply_to_user_id) REFERENCES users(id_users)
-
-    -- NOTE:
-    -- We do not have the following foreign keys because they would require us
-    -- to store many unhydrated tweets in this table.
-    -- FOREIGN KEY (in_reply_to_status_id) REFERENCES tweets(id_tweets),
-    -- FOREIGN KEY (quoted_status_id) REFERENCES tweets(id_tweets)
 );
 
-CREATE INDEX tweets_index_created_at ON tweets(created_at DESC);
-CREATE INDEX tweets_index_withheldincountries ON tweets USING gin(withheld_in_countries);
-
-CREATE TABLE credentials (
+CREATE TABLE IF NOT EXISTS credentials (
     username TEXT PRIMARY KEY,
     password TEXT
 );
 
-COMMIT;
+-- Extensions and indexes (IF NOT EXISTS so safe to re-run)
+CREATE EXTENSION IF NOT EXISTS rum;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+ALTER TABLE tweets ADD COLUMN IF NOT EXISTS tsv_text TSVECTOR
+    GENERATED ALWAYS AS (to_tsvector('english', coalesce(text, ''))) STORED;
+
+CREATE INDEX IF NOT EXISTS tweets_rum_tsv ON tweets USING rum(tsv_text);
+CREATE INDEX IF NOT EXISTS tweets_index_withheldincountries ON tweets USING gin(withheld_in_countries);
+CREATE INDEX IF NOT EXISTS tweets_trgm_text ON tweets USING gin(text gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS tweets_index_created_at ON tweets(created_at DESC);
+
+COMMIT;
