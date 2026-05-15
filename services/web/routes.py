@@ -141,9 +141,45 @@ def read_create_account(request: Request):
 
 @router.post("/create_account")
 def post_create_account(request: Request, username: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
-    """Returns the HTML content after a successful account creation"""
-    username = logged_in_user(request)
-    return templates.TemplateResponse("account_created.html", {"request": request, "username": username})
+    # Check passwords match
+    if password != confirm_password:
+        return templates.TemplateResponse("create_account.html", {
+            "request": request,
+            "username": None,
+            "error": "Passwords do not match"
+        })
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Check if username already exists
+            # ✅ Parameterized — safe from SQL injection
+            cursor.execute(
+                "SELECT username FROM credentials WHERE username = %s",
+                (username,)
+            )
+            if cursor.fetchone() is not None:
+                return templates.TemplateResponse("create_account.html", {
+                    "request": request,
+                    "username": None,
+                    "error": f"Username '{username}' already exists"
+                })
+
+            # Insert new account
+            # ✅ Parameterized — safe from SQL injection
+            cursor.execute(
+                "INSERT INTO credentials (username, password) VALUES (%s, %s)",
+                (username, password)
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+    # Log them in automatically after account creation
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie("username", username)
+    response.set_cookie("password", password)
+    return response
 
 @router.get("/create_message")
 def read_create_message(request: Request):
